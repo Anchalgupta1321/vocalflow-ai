@@ -1,0 +1,123 @@
+// Multi-Tenant PostgreSQL Schema for Indian AI Receptionist SaaS
+// Compatible with Prisma ORM & Supabase
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum CallType {
+  INBOUND
+  OUTBOUND_SERVICE
+  OUTBOUND_PROMOTIONAL
+}
+
+enum CallStatus {
+  IN_PROGRESS
+  COMPLETED
+  BUSY
+  NO_ANSWER
+  FAILED
+}
+
+enum VoiceEngine {
+  ELEVENLABS
+  CARTESIA
+  BOLNA
+  VIO
+}
+
+model Tenant {
+  id              String         @id @default(uuid())
+  businessName    String
+  email           String         @unique
+  phone           String
+  gstin           String?
+  dltEntityId     String?        // TRAI Principal Entity DLT Registration ID
+  dltHeaderId     String?        // TRAI Approved Header (e.g. AD-APOLLO)
+  subscriptionPlan String        @default("STARTER_4999")
+  includedMinutes Int            @default(300)
+  usedMinutesThisMonth Int       @default(0)
+  razorpaySubId   String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  agents          Agent[]
+  callLogs        CallLog[]
+  traiConsents    TraiConsent[]
+  appointments    Appointment[]
+}
+
+model Agent {
+  id                  String      @id @default(uuid())
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  industry            String
+  language            String      @default("Hinglish")
+  voiceEngine         VoiceEngine @default(ELEVENLABS)
+  voiceId             String      @default("21m00Tcm4TlvDq8ikWAM")
+  greeting            String
+  systemPrompt        Text
+  faqs                Json        // [{ question: string, answer: string }]
+  phoneNumber         String      @unique
+  maxCallDurationSecs Int         @default(300)
+  isPublished         Boolean     @default(true)
+  createdAt           DateTime    @default(now())
+
+  callLogs            CallLog[]
+}
+
+model CallLog {
+  id                  String      @id @default(uuid())
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id])
+  agentId             String
+  agent               Agent       @relation(fields: [agentId], references: [id])
+  customerPhone       String
+  customerName        String?
+  callType            CallType    @default(INBOUND)
+  status              CallStatus  @default(COMPLETED)
+  durationSeconds     Int
+  totalCostInr        Decimal     @db.Decimal(10, 2)
+  voiceCostInr        Decimal     @db.Decimal(10, 2)
+  telephonyCostInr    Decimal     @db.Decimal(10, 2)
+  llmCostInr          Decimal     @db.Decimal(10, 2)
+  sentiment           String?
+  summary             String?
+  transcript          Json        // [{ speaker: 'AI' | 'Customer', text: string, timestamp: string }]
+  traiCompliant       Boolean     @default(true)
+  dndScrubbed         Boolean     @default(true)
+  whatsappDispatched  Boolean     @default(false)
+  createdAt           DateTime    @default(now())
+}
+
+model TraiConsent {
+  id                  String      @id @default(uuid())
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id])
+  customerPhone       String
+  consentType         String      // 'explicit_web', 'ivr_opt_in', 'inbound_request'
+  grantedAt           DateTime    @default(now())
+  expiresAt           DateTime
+  purpose             String
+  peRegistrationId    String
+  isActive            Boolean     @default(true)
+}
+
+model Appointment {
+  id                  String      @id @default(uuid())
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id])
+  customerName        String
+  customerPhone       String
+  slotTime            DateTime
+  serviceName         String
+  googleCalendarEventId String?
+  status              String      @default("CONFIRMED")
+  createdAt           DateTime    @default(now())
+}
