@@ -89,7 +89,7 @@ export const CallSimulatorModal: React.FC<CallSimulatorModalProps> = ({
     }
   };
 
-  const handleSendCustomerMessage = (textToSend?: string) => {
+  const handleSendCustomerMessage = async (textToSend?: string) => {
     const text = textToSend || customerInput;
     if (!text.trim() || callStatus !== 'connected') return;
 
@@ -102,33 +102,45 @@ export const CallSimulatorModal: React.FC<CallSimulatorModalProps> = ({
     setCustomerInput('');
     setWorkflowStep(3); // Step 3: Understands Request
 
-    // Simulate VocalFlow Restaurant AI Workflow
     setTimeout(() => {
       setWorkflowStep(4); // Step 4: Checks Availability
-    }, 400);
+    }, 300);
 
-    setTimeout(() => {
-      let aiReply = '';
+    try {
+      const response = await fetch('/api/groq/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history: [] })
+      });
+      const data = await response.json();
+
+      let aiReply = data.ai_response || `Certainly! I have checked availability for ${data.party_size || 4} guests tonight at ${data.time || '8:00 PM'}. Table #4 is booked!`;
       let action = null;
 
-      const lower = text.toLowerCase();
-      if (lower.includes('table') || lower.includes('book') || lower.includes('tonight') || lower.includes('8')) {
+      if (data.intent === 'table_booking' || text.toLowerCase().includes('table') || text.toLowerCase().includes('book')) {
         setWorkflowStep(5); // Step 5: Books Table
-        aiReply = `Certainly! Checking availability for 4 guests tonight at 8:00 PM... Great news, terrace table #4 is open! I have booked your table and sent an instant WhatsApp confirmation to your phone.`;
-        action = `Table Booked: Terrace Table #4 for 4 Guests @ 8:00 PM`;
+        action = `Table Booked: Terrace Table #4 for ${data.party_size || 4} Guests @ ${data.time || '8:00 PM'}`;
         setWhatsappSent(true);
-      } else if (lower.includes('valet') || lower.includes('parking')) {
-        aiReply = `Yes! We offer complimentary valet parking right at the main entrance.`;
-      } else if (lower.includes('menu') || lower.includes('cocktail')) {
-        aiReply = `I have sent our digital dinner & artisanal cocktail menu link directly to your WhatsApp!`;
-        setWhatsappSent(true);
-      } else {
-        aiReply = `Thank you for calling Spice Lounge Fine Dining! I have noted your request. Is there anything else I can help you with today?`;
+
+        // Step 6: Dispatch live WhatsApp receipt
+        fetch('/api/whatsapp/send-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerPhone: '+91 98450 99887',
+            businessName: agent.businessName,
+            appointmentDetails: {
+              partySize: data.party_size || 4,
+              time: data.time || '20:00',
+              date: data.date || new Date().toISOString().split('T')[0]
+            }
+          })
+        }).catch(() => {});
       }
 
       if (action) {
         setActionExtracted(action);
-        setWorkflowStep(6); // Step 6: Dispatched & Dashboard Updated
+        setWorkflowStep(6); // Step 6: WhatsApp Dispatched & Dashboard Updated
         try {
           confetti({ particleCount: 35, spread: 65, origin: { y: 0.7 } });
         } catch (e) {}
@@ -139,8 +151,21 @@ export const CallSimulatorModal: React.FC<CallSimulatorModalProps> = ({
         { speaker: 'AI', text: aiReply, timestamp: `00:${callDuration + 2}` }
       ]);
       speakAiResponse(aiReply);
-    }, 900);
+    } catch (err) {
+      // Fallback if network offline
+      const fallbackReply = `Certainly! Table for 4 tonight at 8:00 PM is open. I have reserved table #4 and sent your WhatsApp receipt!`;
+      setWorkflowStep(5);
+      setActionExtracted('Table Booked: Terrace Table #4 for 4 Guests @ 8:00 PM');
+      setWhatsappSent(true);
+      setWorkflowStep(6);
+      setTranscript([
+        ...newTranscript,
+        { speaker: 'AI', text: fallbackReply, timestamp: `00:${callDuration + 2}` }
+      ]);
+      speakAiResponse(fallbackReply);
+    }
   };
+
 
   const handleEndCall = () => {
     if ('speechSynthesis' in window) {
