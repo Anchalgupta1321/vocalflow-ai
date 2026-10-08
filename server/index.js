@@ -122,8 +122,12 @@ app.post('/api/compliance/scrub-dnd', (req, res) => {
 });
 
 // Fallback for React Single Page Application (SPA) client-side routing
-app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+// Modern Express 5 / path-to-regexp fix for wildcard routes
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+    return res.sendFile(path.join(distPath, 'index.html'));
+  }
+  next();
 });
 
 const PORT = process.env.PORT || 4000;
