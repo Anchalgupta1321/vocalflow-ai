@@ -64,7 +64,8 @@ model Agent {
   voiceEngine         VoiceEngine @default(ELEVENLABS)
   voiceId             String      @default("21m00Tcm4TlvDq8ikWAM")
   greeting            String
-  systemPrompt        Text
+  systemPrompt        String
+
   faqs                Json        // [{ question: string, answer: string }]
   phoneNumber         String      @unique
   maxCallDurationSecs Int         @default(300)
