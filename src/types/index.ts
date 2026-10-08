@@ -20,8 +20,9 @@ export interface TenantInfo {
   usedMinutesThisMonth: number;
   dltEntityId: string;
   dltHeader: string;
-  razorpaySubStatus: 'active' | 'past_due' | 'trialing';
+  razorpaySubStatus: 'active' | 'past_due' | 'trialing' | 'suspended';
   nextBillingDate: string;
+  createdAt: string;
 }
 
 export interface AgentConfig {
@@ -92,3 +93,5 @@ export interface UnitEconomicsState {
   whatsappMessageCost: number;
   activeSubscriberCount: number;
 }
+
+export type UserRole = 'super_admin' | 'tenant_admin';
