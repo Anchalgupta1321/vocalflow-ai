@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Key, Phone, Volume2, Calendar, MessageSquare, CheckCircle2, ShieldCheck, Zap } from 'lucide-react';
 
 export const IntegrationSettings: React.FC = () => {
+  const [groqKey, setGroqKey] = useState('gsk_live_98a7b6c5d4e3f2a1b0c9d8e7');
   const [elevenlabsKey, setElevenlabsKey] = useState('el_live_99a8b7c6d5e4f3a2b1c0d9e8');
   const [exotelSid, setExotelSid] = useState('exotel_sub_2991048293');
   const [whatsappToken, setWhatsappToken] = useState('EAAG9018472938472938472938');
@@ -27,7 +28,7 @@ export const IntegrationSettings: React.FC = () => {
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">API & Telephony Integrations</h2>
           <p className="text-sm text-slate-400">
-            Connect your own ElevenLabs API keys, Indian Telephony trunks (Exotel/Twilio), Google Calendar, and Meta WhatsApp Business credentials.
+            Connect your Groq LLM key (Llama-3.3-70b), ElevenLabs voice, Exotel/Twilio SIP trunks, and Meta WhatsApp Business credentials.
           </p>
         </div>
 
@@ -42,6 +43,36 @@ export const IntegrationSettings: React.FC = () => {
 
       {/* Integration Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* Groq LLM API Key */}
+        <div className="glass-panel p-6 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-xs">
+                GROQ
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Groq LLM Engine (Llama-3.3-70b)</h3>
+                <p className="text-[11px] text-amber-300/80">Ultra-fast ~300ms Intent Extraction & Speech Agent</p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
+              ACTIVE (~500 t/s)
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs text-slate-300 block">Groq API Key (`gsk_...`)</label>
+            <input
+              type="password"
+              value={groqKey}
+              onChange={(e) => setGroqKey(e.target.value)}
+              placeholder="gsk_..."
+              className="w-full bg-slate-950 border border-amber-500/30 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+        </div>
+
         
         {/* ElevenLabs API Key */}
         <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">

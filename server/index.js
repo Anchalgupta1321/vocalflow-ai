@@ -26,6 +26,86 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/media-stream' });
 
 // ---------------------------------------------------------
+// 0. GROQ LLM API INTEGRATION (Ultra-Fast AI Receptionist Brain)
+// ---------------------------------------------------------
+
+/**
+ * Handle Intent Extraction and Receptionist Conversation via Groq API
+ * Supports Llama-3.3-70b-versatile with ultra-low latency (~300ms)
+ */
+app.post('/api/groq/chat', async (req, res) => {
+  const { message, history = [], userApiKey } = req.body;
+  const apiKey = userApiKey || process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    // Fallback Mock response if no API Key provided yet
+    console.log('[Groq API] No API Key provided, returning fallback structured response.');
+    return res.json({
+      intent: 'table_booking',
+      party_size: 4,
+      time: '20:00',
+      date: new Date().toISOString().split('T')[0],
+      availability_status: 'available',
+      table_number: 'T-04',
+      ai_response: 'Great news! We have a table available for 4 people tonight at 8:00 PM. Would you like me to lock this reservation for you?',
+      whatsapp_receipt_ready: true,
+      model: 'groq-llama-3.3-70b (simulated)'
+    });
+  }
+
+  try {
+    const systemPrompt = `You are VocalFlow AI, an expert, polite restaurant receptionist for fine dining.
+Your goal is to converse naturally with callers in English/Hinglish and help them book tables or answer FAQs.
+Return your answer exclusively as a JSON object with this exact schema:
+{
+  "intent": "table_booking" | "faq_inquiry" | "cancellation" | "general",
+  "party_size": number | null,
+  "time": "HH:MM" | null,
+  "date": "YYYY-MM-DD" | null,
+  "availability_status": "available" | "full" | "checking",
+  "table_number": string | null,
+  "ai_response": "Natural polite spoken response to customer",
+  "whatsapp_receipt_ready": boolean
+}`;
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...history,
+          { role: 'user', content: message }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.2
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) {
+      return res.status(400).json({ success: false, error: data.error.message });
+    }
+
+    const parsedContent = JSON.parse(data.choices[0].message.content);
+    return res.json({
+      success: true,
+      ...parsedContent,
+      model: 'groq-llama-3.3-70b-versatile',
+      usage: data.usage
+    });
+  } catch (err) {
+    console.error('[Groq API Error]:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+// ---------------------------------------------------------
 // 1. TELEPHONY WEBHOOKS (Exotel / Twilio / Tata Tele / CloudAgent)
 // ---------------------------------------------------------
 
