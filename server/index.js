@@ -163,23 +163,69 @@ wss.on('connection', (ws) => {
 // ---------------------------------------------------------
 
 app.post('/api/whatsapp/send-confirmation', async (req, res) => {
-  const { customerPhone, appointmentDetails, businessName } = req.body;
-  
-  try {
-    // Integration with Meta WhatsApp Cloud API / Gupshup / WATI
-    console.log(`[WhatsApp API] Dispatching confirmation template to ${customerPhone}`);
-    
-    // Mock successful Meta Graph API response
+  const { customerPhone, appointmentDetails = {}, businessName = 'Spice Lounge Fine Dining' } = req.body;
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+  const targetPhone = customerPhone || process.env.TARGET_WHATSAPP_PHONE;
+
+  const messageBody = `🎉 Table Reservation Confirmed!
+
+Hi! Your table reservation at *${businessName}* is confirmed.
+
+📅 Date: ${appointmentDetails.date || 'Tonight'}
+⏰ Time: ${appointmentDetails.time || '8:00 PM'}
+👥 Guests: ${appointmentDetails.partySize || 4} People
+🍽️ Table: Terrace Table #4
+📍 Directions: https://maps.google.com/?q=Spice+Lounge+Fine+Dining
+
+Powered by VocalFlow AI Receptionist 🤖`;
+
+  if (!accountSid || !authToken) {
+    console.log(`[WhatsApp API] Simulating dispatch to ${targetPhone} (Add TWILIO_ACCOUNT_SID & TWILIO_AUTH_TOKEN for live SMS/WhatsApp)`);
     return res.json({
       success: true,
       messageId: `wmid.HBgL${Date.now()}`,
-      status: 'sent',
-      recipient: customerPhone
+      status: 'simulated',
+      recipient: targetPhone,
+      messageBody
+    });
+  }
+
+  try {
+    const formattedTo = targetPhone.startsWith('whatsapp:') ? targetPhone : `whatsapp:${targetPhone.replace(/\s+/g, '')}`;
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+    const params = new URLSearchParams({
+      From: fromNumber,
+      To: formattedTo,
+      Body: messageBody
+    });
+
+    const response = await fetch(twilioUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params
+    });
+
+    const data = await response.json();
+    console.log('[Twilio WhatsApp Response]:', data);
+
+    return res.json({
+      success: true,
+      sid: data.sid,
+      status: data.status,
+      recipient: targetPhone,
+      messageBody
     });
   } catch (error) {
+    console.error('[WhatsApp API Error]:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 // ---------------------------------------------------------
 // 4. TRAI NCPR DND SCRUBBER SERVICE API
